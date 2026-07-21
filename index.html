@@ -3,62 +3,118 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sillage · Decants & Perfumes</title>
+<meta name="referrer" content="no-referrer">
+<title>Sillage &middot; Decants &amp; Perfumes</title>
 <style>
   html,body{margin:0;padding:0;background:#FBF4EC;font-family:Georgia,'Times New Roman',serif;}
-  #loading{padding:60px 20px;text-align:center;color:#5A4B3E;font-size:15px;}
-  #erro{padding:60px 20px;text-align:center;color:#A9782E;font-size:14px;display:none;}
+  #status{padding:50px 24px;text-align:center;color:#5A4B3E;font-size:16px;line-height:1.6;}
+  #status a{color:#A9782E;font-weight:bold;}
+  .btn{display:inline-block;margin-top:16px;padding:12px 22px;background:#A9782E;color:#fff;
+       text-decoration:none;border-radius:24px;font-size:15px;}
 </style>
 </head>
 <body>
-<div id="loading">Carregando catálogo...</div>
-<div id="erro">Não foi possível carregar o catálogo agora. <a href="#" onclick="location.reload();return false;">Tentar novamente</a>.</div>
+
+<div id="status">Carregando cat&aacute;logo...</div>
 <div id="app"></div>
 
+<noscript>
+  <div style="padding:40px 24px;text-align:center;color:#5A4B3E;">
+    Seu navegador est&aacute; com JavaScript desativado.<br>
+    Abra este link no Chrome ou Safari para ver o cat&aacute;logo.
+  </div>
+</noscript>
+
 <script>
+(function(){
   var CATALOG_URL = 'https://script.google.com/macros/s/AKfycbwyGTxHVCJVUghaOHOJRFFhd-JTleDPUwAkY7vOkW9VciYKnlVO2hf1pUYSozS9M2Y4UQ/exec?raw=1';
+  var statusEl = document.getElementById('status');
+  var appEl = document.getElementById('app');
+  var done = false;
 
-  fetch(CATALOG_URL)
-    .then(function(r){
-      if (!r.ok) throw new Error('status ' + r.status);
-      return r.text();
-    })
-    .then(function(html){
+  function showError(motivo){
+    if (done) return;
+    done = true;
+    statusEl.innerHTML =
+      'N&atilde;o foi poss&iacute;vel carregar o cat&aacute;logo neste navegador.<br>' +
+      '<small style="color:#9C8C78;">(' + motivo + ')</small><br>' +
+      '<a class="btn" href="' + location.href + '" target="_blank" rel="noopener">Abrir no navegador</a><br>' +
+      '<small style="color:#9C8C78;display:block;margin-top:14px;">' +
+      'Se estiver no Facebook ou Instagram, toque nos tr&ecirc;s pontinhos (&#8942;) e escolha "Abrir no navegador".</small>';
+  }
+
+  function render(html){
+    if (done) return;
+    try {
       var styleMatch = html.match(/<style>([\s\S]*?)<\/style>/);
-      var bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/);
-
       if (styleMatch) {
         var styleEl = document.createElement('style');
-        styleEl.textContent = styleMatch[1];
+        styleEl.appendChild(document.createTextNode(styleMatch[1]));
         document.head.appendChild(styleEl);
       }
 
-      var app = document.getElementById('app');
-      if (bodyMatch) {
-        app.innerHTML = bodyMatch[1];
-      } else {
-        app.innerHTML = html;
+      var bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/);
+      appEl.innerHTML = bodyMatch ? bodyMatch[1] : html;
+
+      // Recria os <script> para que realmente executem.
+      // Usa for classico: NodeList.forEach nao existe em webviews antigos.
+      var scripts = appEl.getElementsByTagName('script');
+      var lista = [];
+      for (var i = 0; i < scripts.length; i++) { lista.push(scripts[i]); }
+      for (var j = 0; j < lista.length; j++) {
+        var velho = lista[j];
+        var novo = document.createElement('script');
+        if (velho.src) {
+          novo.src = velho.src;
+        } else {
+          novo.appendChild(document.createTextNode(velho.text || velho.textContent || ''));
+        }
+        velho.parentNode.replaceChild(novo, velho);
       }
 
-      // Re-create <script> tags so they actually execute
-      // (innerHTML-inserted scripts do not run automatically)
-      app.querySelectorAll('script').forEach(function(oldScript){
-        var newScript = document.createElement('script');
-        if (oldScript.src) {
-          newScript.src = oldScript.src;
-        } else {
-          newScript.textContent = oldScript.textContent;
-        }
-        oldScript.parentNode.replaceChild(newScript, oldScript);
-      });
+      done = true;
+      statusEl.style.display = 'none';
+    } catch (e) {
+      showError('erro ao montar a pagina');
+    }
+  }
 
-      document.getElementById('loading').style.display = 'none';
-    })
-    .catch(function(err){
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('erro').style.display = 'block';
-      console.error('Erro ao carregar catálogo:', err);
-    });
+  function carregar(){
+    // XMLHttpRequest funciona em praticamente todo webview; fetch nao.
+    var xhr;
+    try { xhr = new XMLHttpRequest(); } catch (e) { showError('sem suporte a requisicoes'); return; }
+
+    var expirou = setTimeout(function(){
+      try { xhr.abort(); } catch (e) {}
+      showError('tempo esgotado');
+    }, 20000);
+
+    xhr.onreadystatechange = function(){
+      if (xhr.readyState !== 4) return;
+      clearTimeout(expirou);
+      if (xhr.status >= 200 && xhr.status < 400 && xhr.responseText) {
+        render(xhr.responseText);
+      } else {
+        showError('resposta ' + xhr.status);
+      }
+    };
+
+    try {
+      xhr.open('GET', CATALOG_URL, true);
+      xhr.send(null);
+    } catch (e) {
+      clearTimeout(expirou);
+      showError('conexao bloqueada');
+    }
+  }
+
+  if (window.addEventListener) {
+    window.addEventListener('error', function(){ showError('erro de script'); }, false);
+  }
+
+  carregar();
+})();
 </script>
+
 </body>
 </html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sillage · Decants & Perfumes</title>
+<style>
+  html,body{margin:0;padding:0;background:#FBF4EC;font-family:Georgia,'Times New Roman',serif;}
+  #loading{padding:60px 20px;text-align:center;color:#5A4B3E;font-size:15px;}
+  #erro{padding:60px 20px;text-align:center;color:#A9782E;font-size:14px;display:none;}
+</style>
+</head>
+<body>
+<div id="loading">Carregando catálogo...</div>
+<div id="erro">Não foi possível carregar o catálogo agora. <a href="#" onclick="location.reload();return false;">Tentar novamente</a>.</div>
+<div id="app"></div>
+
+<script>
+  var CATALOG_URL = 'https://script.google.com/macros/s/AKfycbwyGTxHVCJVUghaOHOJRFFhd-JTleDPUwAkY7vOkW9VciYKnlVO2hf1pUYSozS9M2Y4UQ/exec?raw=1';
+
+  fetch(CATALOG_URL)
+    .then(function(r){
+      if (!r.ok) throw new Error('status ' + r.status);
+      return r.text();
+    })
+    .then(function(html){
+      var styleMatch = html.match(/<style>([\s\S]*?)<\/style>/);
+      var bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/);
+
+      if (styleMatch) {
+        var styleEl = document.createElement('style');
+        styleEl.textContent = styleMatch[1];
+        document.head.appendChild(styleEl);
+      }
+
+      var app = document.getElementById('app');
+      if (bodyMatch) {
+        app.innerHTML = bodyMatch[1];
+      } else {
+        app.innerHTML = html;
+      }
+
+      // Re-create <script> tags so they actually execute
+      // (innerHTML-inserted scripts do not run automatically)
+      app.querySelectorAll('script').forEach(function(oldScript){
+        var newScript = document.createElement('script');
+        if (oldScript.src) {
+          newScript.src = oldScript.src;
+        } else {
+          newScript.textContent = oldScript.textContent;
+        }
+        oldScript.parentNode.replaceChild(newScript, oldScript);
+      });
+
+      document.getElementById('loading').style.display = 'none';
+    })
+    .catch(function(err){
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('erro').style.display = 'block';
+      console.error('Erro ao carregar catálogo:', err);
+    });
+</script>
+</body>
+</html>

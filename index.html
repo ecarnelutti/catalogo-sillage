@@ -86,7 +86,7 @@
    Para VOLTAR: apague o nome da lista.
    Ex.: var PAUSADOS = ["Delilah Blanc"];
    O nome deve ser igual ao que aparece no card (maiusculas/minusculas nao importam). */
-var PAUSADOS = ["Delilah Blanc"];
+var PAUSADOS = ["Delilah Blanc", "Queen of Arabia"];
 /* ============================= */
 function _norm(s){return (s||"").trim().toLowerCase();}
 function _pausado(c){var el=c.querySelector(".name");return !!(el && PAUSADOS.map(_norm).indexOf(_norm(el.textContent))!==-1);}
